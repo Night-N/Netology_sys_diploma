@@ -6,7 +6,7 @@
 ```
 Ключевая задача — разработать отказоустойчивую инфраструктуру для сайта, включающую мониторинг, сбор логов и резервное копирование основных данных. Инфраструктура должна размещаться в [Yandex Cloud](https://cloud.yandex.com/) и отвечать минимальным стандартам безопасности
 ```
-Подробнее... 
+[Подробнее... ](https://github.com/netology-code/sys-diplom)
 
 ## Содержание
 
@@ -52,7 +52,7 @@
 
 ## Структура проекта
 
-- Пайплайн: [.gitlab-ci.yml]()
+- Пайплайн: [.gitlab-ci.yml](./.gitlab-ci.yml)
 - Инфраструктура в Терраформе: [./terraform/](./terraform/)
 - Провижн необходимых сервисов с помощью Ансибл:
   - Postgres cluster:  [./ansible/postgres/](./ansible/postgres/) `(адаптирован плейбук https://github.com/vitabaks/postgresql_cluster)`
@@ -86,7 +86,7 @@ ansible_ssh_common_args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/
 ## Nginx
 
 - Роль: [./ansible/project/roles/nginx/](./ansible/project/roles/nginx/)
-- В яндексе на время работы с проектом зарезервирован один статический IP адрес, для которого у стороннего провайдера добавлена CNAME запись, а в Certificate Manager Яндекса выпущен let's encrypt сертификат для домена - это сделано заранее вручную. 
+- В яндексе на время работы с проектом зарезервирован один статический IP адрес, для которого у стороннего провайдера добавлена CNAME запись, а в Certificate Manager Яндекса выпущен let's encrypt сертификат для домена - это сделано заранее вручную, и в дальнейшем они просто используются терраформом.  
 
 <div align="center"><img src="./img/nginx-1.jpg" width="500" /></div>
 
@@ -108,19 +108,19 @@ ansible_ssh_common_args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/
 - RestAPI Patroni на порту 8008 используется для определения мастера по запросу к адресу [хост]:8008/master.  
 Балансировщик яндекса блокирует опрашиваемые и таргетные порты, поэтому дополнительно устанавливаются правила IPtables для взаимодействия с балансировщиком и отдачи ему информации на недефолтных портах, в итоге после выполнения этого плейбука внутренний балансировщик выглядит так:  
 
-<div align="center"><img src="./img/pg-2.jpg" width="500" /></div>
+<div align="center"><img src="./img/pg2.jpg" width="500" /></div>
 
 - Подключение с бастиона на адрес балансировщика:  
 
-<div align="center"><img src="./img/pg-3.jpg" width="500" /></div>
+<div align="center"><img src="./img/pg3.jpg" width="500" /></div>
 
 - Базу данных в проекте использует Zabbix, поэтому сразу в плейбуке создается пользователь и пустая бд по дефолтному шаблону постгреса.
 
-<div align="center"><img src="./img/pg-4.jpg" width="500" /></div>
+<div align="center"><img src="./img/pg4.jpg" width="500" /></div>
 
 - в pg_hba добавлены scram-sha-256 подключения из приватных сетей проекта
 
-<div align="center"><img src="./img/pg-5.jpg" width="500" /></div>
+<div align="center"><img src="./img/pg5.jpg" width="500" /></div>
 
 - Порты, необходимые для работы этой части инфраструктуры: 
   - 8008 (Patroni)
@@ -132,23 +132,23 @@ ansible_ssh_common_args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/
   - 10050 (zabbix agent)
 - Кластер доступен:
 
-<div align="center"><img src="./img/pg-6.jpg" width="500" /></div>
+<div align="center"><img src="./img/pg6.jpg" width="500" /></div>
 
 - Пробное отключение мастера:
 
-<div align="center"><img src="./img/pg-7.jpg" width="500" /></div>
+<div align="center"><img src="./img/pg7.jpg" width="500" /></div>
 
 - Состояние кластера, лидер мгновенно поменялся:
 
-<div align="center"><img src="./img/pg-8.jpg" width="500" /></div>
+<div align="center"><img src="./img/pg8.jpg" width="500" /></div>
 
 - Вновь подключаемся с бастиона на адрес балансировщика, создаём новую таблицу:
 
-<div align="center"><img src="./img/pg-9.jpg" width="500" /></div>
+<div align="center"><img src="./img/pg9.jpg" width="500" /></div>
 
 - Обратное включение, бывший мастер становится репликой и догоняет нового мастера:
 
-<div align="center"><img src="./img/pg-10.jpg" width="500" /></div>
+<div align="center"><img src="./img/pg10.jpg" width="500" /></div>
 
 
 ## Zabbix мониторинг
@@ -162,7 +162,7 @@ ansible_ssh_common_args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/
 
 <div align="center"><img src="./img/zabbix2.jpg" width="500" /></div>
 <div align="center"><img src="./img/zabbix3.jpg" width="500" /></div>
-<div align="center"><img src="./img/zabbix8.jpg" width="500" /></div>
+<div align="center"><img src="./img/zabbix7.jpg" width="500" /></div>
 
 - Мониторинг CPU, Memory, Network, NGINX.
 
@@ -171,6 +171,12 @@ ansible_ssh_common_args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/
 
 ## ELK
 
+- Роли:
+  - [./ansible/project/roles/elasticsearch/](./ansible/project/roles/elasticsearch/)
+  - [./ansible/project/roles/kibana/](./ansible/project/roles/kibana/)
+  - [./ansible/project/roles/metricbeat/](./ansible/project/roles/metricbeat/)
+  - [./ansible/project/roles/logstash/](./ansible/project/roles/logstash/)
+  - [./ansible/project/roles/filebeat/](./ansible/project/roles/filebeat/)
 - По состоянию на 9 окт. 2023 ресурсы elasticsearch недоступны из России с официального репозитория, зеркало яндекса отключено, также недоступен docker registry эластика, в котором хранятся образы логсташа, метрикбита и файлбита. 
 - В связи с этим необходимые пакеты скачаны через VPN, создан локальный yum репозиторий, в хранилище образов добавлен образ готового диска с ОС и nginx. 
 Для репозитория решил использовать Bastion host (для оптимизации ресурсов). Он сразу создается из заранее подготовленного образа с включенным nginx'ом.   
@@ -258,5 +264,5 @@ output {
 
 ## Бэкапы
 
-- Также настроены ежедневные снапшоты дисков со сроком жизни не более недели:
+- Также настроены ежедневные снапшоты дисков со сроком жизни не более недели:  
 [./terraform/snapshot.tf](./terraform/snapshot.tf)
