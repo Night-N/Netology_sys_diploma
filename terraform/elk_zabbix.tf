@@ -51,7 +51,7 @@ resource "yandex_compute_instance" "vm6-kibana" {
   network_interface {
     subnet_id               = yandex_vpc_subnet.subnet-pub-a.id
     nat                     = false
-    security_group_ids      = [yandex_vpc_security_group.private-network.id, yandex_vpc_security_group.public-network.id]
+    security_group_ids      = [yandex_vpc_security_group.private-network.id]
   }
   metadata = {
     user-data               = data.template_file.metadata.rendered
@@ -114,7 +114,7 @@ resource "yandex_compute_instance" "vm4-zabbix-front" {
   network_interface {
     subnet_id               = yandex_vpc_subnet.subnet-pub-a.id
     nat                     = true
-    security_group_ids      = [yandex_vpc_security_group.private-network.id, yandex_vpc_security_group.public-network.id]
+    security_group_ids      = [yandex_vpc_security_group.private-network.id]
   }
   metadata = {
     user-data               = data.template_file.metadata.rendered
