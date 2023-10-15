@@ -1,0 +1,19 @@
+module my_policy 1.0;
+
+require {
+	type httpd_t;
+	type http_port_t;
+	type http_cache_port_t;
+	type unreserved_port_t;
+	class tcp_socket name_connect;
+}
+
+#============= httpd_t ==============
+
+#!!!! This avc can be allowed using one of the these booleans:
+#     httpd_can_network_connect, httpd_graceful_shutdown, httpd_can_network_relay, nis_enabled
+allow httpd_t http_port_t:tcp_socket name_connect;
+
+#!!!! This avc can be allowed using one of the these booleans:
+#     httpd_can_network_connect, nis_enabled
+allow httpd_t unreserved_port_t:tcp_socket name_connect;

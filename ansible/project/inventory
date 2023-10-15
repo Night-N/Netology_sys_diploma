@@ -1,0 +1,41 @@
+[nginx] 
+vm1-nginx ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM1_NGINX') }}" hostname=vm1-nginx
+vm2-nginx ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM2_NGINX') }}" hostname=vm2-nginx
+
+[zabbix_server]  
+vm3-zabbix-server ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM3_ZABBIX_SERVER') }}" hostname=vm3-zabbix-server
+
+[zabbix_front]
+vm4-zabbix-front ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM4_ZABBIX_FRONT') }}" hostname=vm4-zabbix-front
+
+[elasticsearch]
+vm5-elasticsearch ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM5_ELASTICSEARCH') }}" hostname=vm5-elasticsearch
+
+[kibana]
+vm6-kibana ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM6_KIBANA') }}" hostname=vm6-kibana
+
+[postgres]
+vm7-pg ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM7_PG') }}" hostname=vm7-pg
+vm8-pg ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM8_PG') }}" hostname=vm8-pg
+vm9-pg ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM9_PG') }}" hostname=vm9-pg
+
+[bastion]
+vm10-bastion ansible_host="{{ lookup('ansible.builtin.env', 'EXTERNAL_IP_VM10_BASTION') }}" hostname=vm10-bastion 
+
+[project:children]
+nginx
+zabbix_server
+zabbix_front
+elasticsearch
+kibana
+postgres
+
+[project:vars]
+ansible_ssh_common_args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand=\"ssh -o StrictHostKeyChecking=no -q \"{{ lookup('ansible.builtin.env', 'TF_VAR_ssh_user') }}\"@\"{{ lookup('ansible.builtin.env', 'EXTERNAL_IP_VM10_BASTION') }}\" -o IdentityFile=\"{{ lookup('ansible.builtin.env', 'ANSIBLE_SSH_PRIVATE_KEY') }}\" -o Port=22 -W %h:22\""
+
+# Connection settings
+[all:vars]
+ansible_connection='ssh'
+ansible_ssh_port='22'
+ansible_user='night'
+ansible_ssh_private_key_file="{{ lookup('ansible.builtin.env', 'ANSIBLE_SSH_PRIVATE_KEY') }}"

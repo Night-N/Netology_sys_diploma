@@ -1,0 +1,10 @@
+---
+# ---------------------------------
+# For debugging and tracking vars. 
+# ---------------------------------
+
+# kibana_enroll_token: "no enroll token set"
+# this var addressed via hostname hostvars['vm5-elasticsearch'].kibana_enroll_token
+
+# elasticsearch_password: "IzjkJbO68HHDFc_c2Jf9"
+# this var addressed via hostname hostvars['vm5-elasticsearch'].elasticsearch_password

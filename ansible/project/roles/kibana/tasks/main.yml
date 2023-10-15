@@ -1,0 +1,33 @@
+---
+- name: Install Repo located at bastion host
+  ansible.builtin.template:
+    src: templates/localelk.repo.j2
+    dest: /etc/yum.repos.d/localelk.repo
+
+
+- name: Install Kibana
+  dnf:
+    name: kibana
+    state: present 
+    disable_gpg_check: yes
+    update_cache: yes
+  async: 400
+  poll: 10
+
+
+- name: Copy Kibana configuration
+  ansible.builtin.template:
+    src: templates/kibana.yml.j2
+    dest: /etc/kibana/kibana.yml
+
+
+- name: Enroll Kibana    
+  command:
+    cmd:  /usr/share/kibana/bin/kibana-setup --enrollment-token {{ hostvars['vm5-elasticsearch'].kibana_enroll_token }}
+
+
+- name: Start and enable Kibana
+  service:
+    name:  kibana
+    state: started 
+    enabled: true 

@@ -1,0 +1,8 @@
+- module: elasticsearch
+  xpack.enabled: true
+  period: 10s
+  hosts: ["https://{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM5_ELASTICSEARCH') }}:9200"]
+  basepath: ""
+  username: "elastic"
+  password: "{{ hostvars['vm5-elasticsearch'].elasticsearch_password }}"
+  ssl.certificate_authorities: ["/etc/elasticsearch/certs/http_ca.crt"]

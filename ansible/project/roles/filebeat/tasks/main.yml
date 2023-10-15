@@ -1,0 +1,29 @@
+---
+- name: Install Repo located at bastion host
+  ansible.builtin.template:
+    src: templates/localelk.repo.j2
+    dest: /etc/yum.repos.d/localelk.repo
+
+
+- name: Adjust read rights on nginx logs
+  command:
+    cmd:  chmod -R 744 /var/log/nginx
+
+
+- name: Install Filebeat
+  dnf:
+    name: filebeat
+    state: present 
+
+
+- name: Copy Filebeat configuration
+  ansible.builtin.template:
+    src: templates/filebeat.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+
+
+- name: Start and enable Filebeat
+  service:
+    name:  filebeat
+    state: restarted 
+    enabled: true 

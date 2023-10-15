@@ -1,0 +1,15 @@
+- module: system
+  metricsets:
+    - cpu             # CPU usage
+    - load            # CPU load averages
+    - memory          # Memory usage
+    - network         # Network IO
+    - process         # Per process metrics
+    - process_summary # Process summary
+    - uptime          # System Uptime
+    - socket_summary  # Socket summary
+    - core           # Per CPU core usage
+    - diskio         # Disk IO
+  enabled: true
+  period: 10s
+  processes: ['.*']

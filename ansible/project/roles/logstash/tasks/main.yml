@@ -1,0 +1,51 @@
+---
+- name: Install Repo located at bastion host
+  ansible.builtin.template:
+    src: templates/localelk.repo.j2
+    dest: /etc/yum.repos.d/localelk.repo
+
+
+- name: adjust sysctl to only use ipv4 otherwise logstash will bind to ipv6
+  ansible.posix.sysctl:
+    name:  "{{ item.name }}"
+    value:  "{{ item.value }}"
+    state: present 
+    reload: yes 
+  with_items:
+    - { name: "net.ipv6.conf.all.disable_ipv6", value: "1" }
+    - { name: "net.ipv6.conf.default.disable_ipv6", value: "1" }
+    - { name: "net.ipv6.conf.lo.disable_ipv6", value: "1" }
+
+
+- name: Install Logstash
+  dnf:
+    name: logstash
+    state: present 
+    disable_gpg_check: yes
+    update_cache: yes
+  async: 400
+  poll: 10
+
+
+- name: Copy Logstash configuration
+  ansible.builtin.template:
+    src: templates/logstash.yml.j2
+    dest: /etc/logstash/logstash.yml
+    owner:  logstash
+    group:  logstash
+
+
+- name: Copy Logstash nginx conf
+  ansible.builtin.template:
+    src: templates/logstash_nginx.conf.j2
+    dest: /etc/logstash/conf.d/logstash_nginx.conf
+    owner:  logstash
+    group:  logstash
+
+
+
+- name: Start and enable Logstash
+  service:
+    name:  logstash
+    state: restarted 
+    enabled: true 

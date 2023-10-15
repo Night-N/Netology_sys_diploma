@@ -1,0 +1,130 @@
+- name: Install and enable nginx
+  hosts: nginx
+  become: true
+  become_method: sudo
+  gather_facts: true
+  any_errors_fatal: true
+  roles:
+    - role: nginx
+
+
+- name: Install initial master node elasticsearch
+  hosts: elasticsearch
+  become: true
+  become_method: sudo
+  gather_facts: true
+  any_errors_fatal: true
+  roles:
+    - role: elasticsearch
+
+
+- name: Install and enroll Kibana
+  hosts: kibana
+  become: true
+  become_method: sudo
+  gather_facts: true
+  any_errors_fatal: true
+  roles:
+    - role: kibana
+
+
+- name: Get http_ca.crt from elasticsearch
+  hosts: elasticsearch
+  become: true
+  become_method: sudo
+  tasks:
+    - name: Create the destination directory if it doesn't exist
+      file:
+        path: ./elkcert  
+        state: directory
+      delegate_to: localhost
+    - name: Copy file to localhost
+      fetch:
+        src: /etc/elasticsearch/certs/http_ca.crt
+        dest: ./elkcert/http_ca.crt
+        flat: true
+
+
+- name: Copy http_ca.crt to all hosts
+  hosts: project
+  become: true
+  become_method: sudo
+  tasks:
+    - name: Create the destination directory if it doesn't exist
+      file:
+        path: /etc/elkcert  
+        state: directory
+        mode: "777"
+    - name: Copy file to nodes
+      copy:
+        src: ./elkcert/http_ca.crt
+        dest: /etc/elkcert/http_ca.crt
+        mode: "777"
+
+
+- name: Install Metricbeat on all hosts
+  hosts: all
+  become: true
+  become_method: sudo
+  gather_facts: false
+  any_errors_fatal: true
+  roles:
+    - role: metricbeat
+
+
+- name: Install Logstash
+  hosts: elasticsearch
+  become: true
+  become_method: sudo
+  gather_facts: false
+  any_errors_fatal: true
+  roles:
+    - role: logstash
+
+
+- name: Install Filebeat
+  hosts: nginx
+  become: true
+  become_method: sudo
+  gather_facts: false
+  any_errors_fatal: true
+  roles:
+    - role: filebeat
+
+
+- name: Install Zabbix server
+  hosts: zabbix_server
+  become: true
+  become_method: sudo
+  gather_facts: true
+  any_errors_fatal: true
+  roles:
+    - role: zabbix_server
+
+
+- name: Install Zabbix front
+  hosts: zabbix_front
+  become: true
+  become_method: sudo
+  gather_facts: true
+  any_errors_fatal: true
+  roles:
+    - role: zabbix_front
+
+
+- name: Install Zabbix agent
+  hosts: all
+  become: true
+  become_method: sudo
+  gather_facts: true
+  any_errors_fatal: true
+  roles:
+    - role: zabbix_agent
+
+
+- name: Output elastic password again
+  hosts: localhost
+  tasks:
+    - name: Debug info
+      debug:
+        var: hostvars['vm5-elasticsearch'].elasticsearch_password

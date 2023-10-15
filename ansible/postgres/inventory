@@ -1,0 +1,57 @@
+# Please specify the ip addresses and connection settings for your environment
+# The specified ip addresses will be used to listen by the cluster components.
+# Attention! Specify private IP addresses so that the cluster does not listen a public IP addresses.
+# For deploying via public IPs, add 'ansible_host=public_ip_address' variable for each node.
+
+# "postgresql_exists='true'" if PostgreSQL is already exists and running
+# "hostname=" variable is optional (used to change the server name)
+# "new_node=true" to add a new server to an existing cluster using the add_pgnode.yml playbook
+
+# In this example, all components will be installed on PostgreSQL nodes.
+# You can deploy the haproxy balancers and the etcd or consul cluster on other dedicated servers (recomended).
+
+# if dcs_exists: false and dcs_type: "etcd"
+[etcd_cluster]  # recommendation: 3, or 5-7 nodes
+pgnode01 ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM7_PG') }}" 
+pgnode02 ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM8_PG') }}"
+pgnode03 ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM9_PG') }}"
+
+# if dcs_exists: false and dcs_type: "consul"
+[consul_instances]  # recommendation: 3 or 5-7 nodes
+#192.168.0.1 consul_node_role=server consul_bootstrap_expect=true consul_datacenter=dc1
+
+
+# if with_haproxy_load_balancing: true
+[balancers]
+#192.168.100.11 
+
+
+# PostgreSQL nodes
+[master]
+pgnode01 ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM7_PG') }}" hostname=pgnode01 postgresql_exists=false
+
+[replica]
+pgnode02 ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM8_PG') }}" hostname=pgnode02 postgresql_exists=false
+pgnode03 ansible_host="{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM9_PG') }}" hostname=pgnode03 postgresql_exists=false
+
+[postgres_cluster:children]
+master
+replica
+
+# if pgbackrest_install: true and "repo_host" is set
+[pgbackrest]  # optional (Dedicated Repository Host)
+
+
+
+# Connection settings
+[all:vars]
+ansible_connection='ssh'
+ansible_ssh_port='22'
+ansible_user='night'
+ansible_ssh_private_key_file="{{ lookup('ansible.builtin.env', 'ANSIBLE_SSH_PRIVATE_KEY') }}"
+ansible_ssh_common_args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand=\"ssh -o StrictHostKeyChecking=no -q \"{{ lookup('ansible.builtin.env', 'TF_VAR_ssh_user') }}\"@\"{{ lookup('ansible.builtin.env', 'EXTERNAL_IP_VM10_BASTION') }}\" -o IdentityFile=\"{{ lookup('ansible.builtin.env', 'ANSIBLE_SSH_PRIVATE_KEY') }}\" -o Port=22 -W %h:22\""
+
+[pgbackrest:vars]
+ansible_user='postgres'
+ansible_ssh_pass='secretpassword'
+

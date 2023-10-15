@@ -1,0 +1,41 @@
+---
+- name: Install Repo located at bastion host
+  ansible.builtin.template:
+    src: templates/localelk.repo.j2
+    dest: /etc/yum.repos.d/localelk.repo
+
+- name: Install Metricbeat
+  dnf:
+    name: metricbeat
+    state: present 
+    disable_gpg_check: yes
+    update_cache: yes
+
+- name: Copy Metricbeat configuration
+  ansible.builtin.template:
+    src: templates/metricbeat.yml.j2
+    dest: /etc/metricbeat/metricbeat.yml
+
+- name: Copy Metricbeat system module
+  ansible.builtin.template:
+    src: templates/module_system.yml.j2
+    dest: /etc/metricbeat/modules.d/module_system.yml
+
+- name: Copy Metricbeat kibana module
+  ansible.builtin.template:
+    src: templates/module_kibana.yml.j2
+    dest: /etc/metricbeat/modules.d/module_kibana.yml
+  when: inventory_hostname == 'vm5-elasticsearch'
+
+
+- name: Copy Metricbeat elasticsearch module
+  ansible.builtin.template:
+    src: templates/module_elasticsearch.yml.j2
+    dest: /etc/metricbeat/modules.d/module_elasticsearch.yml
+  when: inventory_hostname == 'vm5-elasticsearch'
+
+- name: Start and enable Metricbeat
+  service:
+    name:  metricbeat
+    state: restarted 
+    enabled: true 

@@ -1,0 +1,192 @@
+stages:
+  - preparation
+  - validate
+  - plan
+  - deploy
+  - provisioning
+  - cleanup
+
+
+variables:
+  TF_ROOT: ${CI_PROJECT_DIR}/terraform  # The relative path to the root directory of the Terraform project
+  TF_STATE_NAME: default      # The name of the state file used by the GitLab Managed Terraform state backend
+  TF_CLI_CONFIG_FILE: ${TF_ROOT}/terraformrc.tfrc #pass CLI config file to allow Yandex provider install
+  PLAN: ${TF_ROOT}/plan.cache #Terraform plan
+  PLAN_JSON: ${TF_ROOT}/plan.json #Terraform plan in json
+  CI_REGISTRY: gitlab.local:5000 #local gitlab registry for Ansible container
+  CI_REGISTRY_IMAGE: gitlab.local:5000/night/test #image name
+  TF_ADDRESS: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME} # states are stored via backend http in gitlab 
+  ANSIBLE_ROOT: ${CI_PROJECT_DIR}/ansible
+
+
+default:
+  image:
+    name: "$CI_TEMPLATE_REGISTRY_HOST/gitlab-org/terraform-images/stable:latest"
+  cache: # this cach is shared among terraform jobs
+    key: "${TF_ROOT}"
+    paths:
+      - ${TF_ROOT}/.terraform/
+  before_script:
+    - cp /etc/certs/ca.crt /usr/local/share/ca-certificates/  # copy root CA to container  for it to be able to connect to gitlab.local
+    - update-ca-certificates --fresh # update certificates
+    - gitlab-terraform init
+
+
+build-image:
+  stage: preparation
+  image: docker:latest
+  cache: {} #empty hash to disable global terraform cash
+  before_script:
+    - cp /etc/certs/ca.crt /usr/local/share/ca-certificates/
+    - update-ca-certificates --fresh    
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  script:
+    - docker build --pull -t "$CI_REGISTRY_IMAGE" .
+    - docker push "$CI_REGISTRY_IMAGE"
+  rules:
+    - changes: 
+      - Dockerfile
+
+
+terraform:validate:
+  stage: validate
+  environment:
+    name: production
+  script:
+    - gitlab-terraform validate
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_OPEN_MERGE_REQUESTS  # Don't add it to a *branch* pipeline if it's already in a merge request pipeline.
+      when: never
+    - if: $CI_COMMIT_BRANCH        # If there's no open merge request, add it to a *branch* pipeline instead.
+
+
+terraform:plan:
+  stage: plan
+  resource_group: ${TF_STATE_NAME}
+  environment:
+    name: production
+  needs: [terraform:validate]
+  before_script:
+    - cp /etc/certs/ca.crt /usr/local/share/ca-certificates/  # copy root CA to container  for it to be able to connect to gitlab.local
+    - update-ca-certificates --fresh # update certificates
+    - gitlab-terraform init 
+    - apk --no-cache add jq
+    - alias convert_report="jq -r '([.resource_changes[]?.change.actions?]|flatten)|{\"create\":(map(select(.==\"create\"))|length),\"update\":(map(select(.==\"update\"))|length),\"delete\":(map(select(.==\"delete\"))|length)}'"
+  script:
+    - gitlab-terraform plan
+    - gitlab-terraform plan-json -out=$PLAN
+    - gitlab-terraform show --json $PLAN | convert_report > $PLAN_JSON
+  artifacts:
+    # The next line, which disables public access to pipeline artifacts, may not be available everywhere.
+    # See: https://docs.gitlab.com/ee/ci/yaml/#artifactspublic
+    # public: false
+    paths:
+      - ${TF_ROOT}/plan.cache
+    reports:
+      terraform: 
+        - ${TF_ROOT}/plan.json
+        - $PLAN_JSON
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_OPEN_MERGE_REQUESTS  # Don't add it to a *branch* pipeline if it's already in a merge request pipeline.
+      when: never
+    - if: $CI_COMMIT_BRANCH        # If there's no open merge request, add it to a *branch* pipeline instead.
+
+
+terraform:deploy:
+  stage: deploy
+  resource_group: ${TF_STATE_NAME}
+  environment:
+    name: production
+  needs: [terraform:plan]
+  script:
+    - gitlab-terraform apply
+    - gitlab-terraform output | sed 's/ = "/=/; s/"//g'  > $CI_PROJECT_DIR/terraform.env #Extract external address' as a variable for ansible
+  rules:
+    # - if: $CI_COMMIT_BRANCH
+    #   # when: manual 
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_OPEN_MERGE_REQUESTS  # Don't add it to a *branch* pipeline if it's already in a merge request pipeline.
+      when: never
+    - if: $CI_COMMIT_BRANCH        # If there's no open merge request, add it to a *branch* pipeline instead.
+  artifacts:
+    reports:
+      dotenv: terraform.env # create dotenv with external address' for ansible 
+
+
+provision-postgres:
+  stage: provisioning
+  image: "$CI_REGISTRY_IMAGE"
+  cache: {} #empty hash to disable global terraform cash
+  environment:
+    name: production
+  needs: [terraform:deploy]
+  before_script:
+    - cd ${ANSIBLE_ROOT}
+  script:
+    - chmod -v 600 "${ANSIBLE_SSH_PRIVATE_KEY}"
+    - cd ${ANSIBLE_ROOT}/postgres/
+    - export ANSIBLE_CONFIG=./ansible.cfg
+    - sleep 120
+    - ansible-playbook  deploy_pgcluster.yml
+    # - ANSIBLE_STDOUT_CALLBACK=junit JUNIT_OUTPUT_DIR="${CI_PROJECT_DIR}/results" ansible-playbook  deploy_pgcluster.yml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      # when: manual
+    - if: $CI_OPEN_MERGE_REQUESTS  # Don't add it to a *branch* pipeline if it's already in a merge request pipeline.
+      when: never
+    - if: $CI_COMMIT_BRANCH        # If there's no open merge request, add it to a *branch* pipeline instead.
+      # when: manual
+  # artifacts:
+  #   when: always
+  #   paths:
+  #     - results/*.xml
+  #   reports:
+  #     junit: results/*.xml
+
+provision-project:
+  stage: provisioning
+  image: "$CI_REGISTRY_IMAGE"
+  cache: {} #empty hash to disable global terraform cash
+  environment:
+    name: production
+  needs: 
+    - job: terraform:deploy
+      artifacts: true
+    - job: provision-postgres
+      artifacts: false
+  before_script:
+    - ansible-galaxy collection install ansible.posix 
+    - cd ${ANSIBLE_ROOT}
+  script:
+    - chmod -v 600 "${ANSIBLE_SSH_PRIVATE_KEY}"
+    - cd ${ANSIBLE_ROOT}/project/
+    - export ANSIBLE_CONFIG=./ansible.cfg
+    - ansible-playbook  deploy_project.yml
+    # - ANSIBLE_STDOUT_CALLBACK=junit JUNIT_OUTPUT_DIR="${CI_PROJECT_DIR}/results" ansible-playbook  deploy_pgcluster.yml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_OPEN_MERGE_REQUESTS  # Don't add it to a *branch* pipeline if it's already in a merge request pipeline.
+      when: never
+    - if: $CI_COMMIT_BRANCH        # If there's no open merge request, add it to a *branch* pipeline instead.
+#   artifacts:
+#     when: always
+#     paths:
+#       - results/*.xml
+#     reports:
+#       junit: results/*.xml
+
+
+
+terraform:destroy:
+  stage: cleanup
+  resource_group: ${TF_STATE_NAME}
+  environment:
+    name: production
+  needs: [terraform:deploy]
+  script:
+    - gitlab-terraform destroy
+  rules:
+    - when: manual
+

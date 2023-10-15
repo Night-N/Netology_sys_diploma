@@ -1,0 +1,5 @@
+[local-elk]
+name=Local Repository
+baseurl=http://{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM10_BASTION') }}/repo/ELK/
+enabled=1
+gpgcheck=0

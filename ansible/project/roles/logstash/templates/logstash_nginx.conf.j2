@@ -1,0 +1,44 @@
+input {
+  beats {
+      port => "5044"
+      host => "{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM5_ELASTICSEARCH') }}"
+  }
+}
+
+filter {
+  if [fields][document_type] == "nginx-access" {
+    grok {
+      match => {
+        "message" => "%{IPORHOST:ip} - %{DATA:user_name} \[%{HTTPDATE:time}\] \"%{WORD:http_method} %{DATA:url} HTTP/%{NUMBER:http_version}\" %{NUMBER:response_code} %{NUMBER:body_sent_bytes} \"%{DATA:request_referer}\" \"%{DATA:user_agent}\""
+      }
+    }
+  }
+  else if [fields][document_type] == "nginx-error" {
+    grok {
+      match => {
+        "message" => "%{TIMESTAMP_ISO8601:timestamp} \[%{LOGLEVEL:loglevel}\] \[%{DATA:error_type}\] %{GREEDYDATA:error_message}"
+      }
+    }
+  }
+}
+
+output {
+  if [fields][document_type] == "nginx-access"  { 
+    elasticsearch {
+      index => "nginx-access-%{+YYYY.MM.dd}"
+      hosts => ["https://{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM5_ELASTICSEARCH') }}:9200"]
+      user => "elastic"
+      password => "{{ hostvars['vm5-elasticsearch'].elasticsearch_password }}" 
+      cacert => "/etc/elkcert/http_ca.crt" 
+    }
+  }
+  else if [fields][document_type] == "nginx-error"  {
+    elasticsearch {
+      index => "nginx-error-%{+YYYY.MM.dd}"
+      hosts => ["https://{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM5_ELASTICSEARCH') }}:9200"]
+      user => "elastic"
+      password => "{{ hostvars['vm5-elasticsearch'].elasticsearch_password }}" 
+      cacert => "/etc/elkcert/http_ca.crt" 
+    }
+  }
+}

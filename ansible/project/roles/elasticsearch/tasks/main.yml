@@ -1,0 +1,73 @@
+---
+- name: Install Repo located at bastion host
+  ansible.builtin.template:
+    src: templates/localelk.repo.j2
+    dest: /etc/yum.repos.d/localelk.repo
+
+- name: Install Elasticsearch
+  dnf:
+    name: elasticsearch
+    state: present 
+    disable_gpg_check: yes
+    update_cache: yes
+  async: 400
+  poll: 10
+
+- name: Copy Elasticsearch configuration
+  ansible.builtin.template:
+    src: templates/elasticsearch.yml.j2
+    dest: /etc/elasticsearch/elasticsearch.yml
+
+- name: Adjust java memory configuration
+  ansible.builtin.template:
+    src: templates/jvm.options.d/jvm.options.j2
+    dest: /etc/elasticsearch/jvm.options.d/jvm.options
+
+- name: Start Elasticsearch
+  service:
+    name:  elasticsearch
+    state: started 
+    enabled: true 
+
+- name: Wait for 30 sec to fully load elastic
+  wait_for:
+    timeout: 30
+
+- name: Install python   
+  dnf:
+    name: python3
+    state: present
+
+- name: Install python module pexpect 
+  pip:
+    name: pexpect
+    state: present 
+
+- name: Generate elastic user password
+  expect:
+    command: /usr/share/elasticsearch/bin/elasticsearch-reset-password -s -u elastic
+    responses:
+      (?i)continue : "y\n"
+    timeout: 30  
+  register: elastic_password_output
+
+
+- name: Set the password as a fact
+  set_fact:
+    elasticsearch_password: "{{ elastic_password_output.stdout | regex_search('Please confirm that you would like to continue \\[y/N\\](.+)$', '\\1') | first }}"
+
+
+- name: Generated password for elastic user
+  debug:
+    var: elasticsearch_password
+
+
+- name: Generate Kibana enrollment token
+  command:
+    cmd:  /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana
+  register: kibana_enroll_token_output
+
+
+- name: Set the enrollment token as a fact 
+  set_fact:
+    kibana_enroll_token: "{{ kibana_enroll_token_output.stdout }}"

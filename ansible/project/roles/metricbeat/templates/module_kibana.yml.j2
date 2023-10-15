@@ -1,0 +1,15 @@
+- module: kibana
+  xpack.enabled: true
+  period: 10s
+  hosts: ["{{ lookup('ansible.builtin.env', 'INTERNAL_IP_VM6_KIBANA') }}:5601"]
+  basepath: "/kibana"
+  username: "elastic"
+  password: "{{ hostvars['vm5-elasticsearch'].elasticsearch_password }}"
+  ssl.certificate_authorities: ["/etc/elkcert/http_ca.crt"]
+
+  
+# Module: kibana
+# Docs: https://www.elastic.co/guide/en/beats/metricbeat/8.10/metricbeat-module-kibana.html
+#  metricsets:
+#    - stats
+#  ssl.certificate_authorities: ["/etc/metricbeat/certs/http_ca.crt"]
