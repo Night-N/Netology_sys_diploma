@@ -2,11 +2,12 @@
 # -------------------------------------------------------------------------------
 # --------------------------------OUTPUT:----------------------------------------
 # -------------------------------------------------------------------------------
+
 output "INTERNAL_IP_VM1_NGINX" {
-  value = yandex_compute_instance.vm1-nginx.network_interface.0.ip_address
+  value = yandex_compute_instance.nginx["vm1-nginx"].network_interface.0.ip_address
 }
 output "INTERNAL_IP_VM2_NGINX" {
-  value = yandex_compute_instance.vm2-nginx.network_interface.0.ip_address
+  value = yandex_compute_instance.nginx["vm2-nginx"].network_interface.0.ip_address
 }
 output "INTERNAL_IP_VM3_ZABBIX_SERVER" {
   value = yandex_compute_instance.vm3-zabbix-server.network_interface.0.ip_address

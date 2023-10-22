@@ -19,7 +19,7 @@ resource "yandex_compute_instance" "vm7-pg" {
     }
   }
   network_interface {
-    subnet_id     = yandex_vpc_subnet.subnet-a.id
+    subnet_id     = yandex_vpc_subnet.subnets["subnet-a"].id
     nat           = false
     security_group_ids  = [yandex_vpc_security_group.private-network.id]
   }
@@ -50,7 +50,7 @@ resource "yandex_compute_instance" "vm8-pg" {
     }
   }
   network_interface {
-    subnet_id     = yandex_vpc_subnet.subnet-b.id
+    subnet_id     = yandex_vpc_subnet.subnets["subnet-b"].id
     nat           = false
     security_group_ids  = [yandex_vpc_security_group.private-network.id]
   }
@@ -81,7 +81,7 @@ resource "yandex_compute_instance" "vm9-pg" {
     }
   }
   network_interface {
-    subnet_id     = yandex_vpc_subnet.subnet-c.id
+    subnet_id     = yandex_vpc_subnet.subnets["subnet-c"].id
     nat           = false
     security_group_ids  = [yandex_vpc_security_group.private-network.id]
   }

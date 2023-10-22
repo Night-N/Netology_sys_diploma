@@ -19,7 +19,7 @@ resource "yandex_compute_instance" "vm5-elasticsearch" {
     }
   }
   network_interface {
-    subnet_id               = yandex_vpc_subnet.subnet-a.id
+    subnet_id               = yandex_vpc_subnet.subnets["subnet-a"].id
     nat                     = false
     security_group_ids      = [yandex_vpc_security_group.private-network.id]
   }
@@ -49,7 +49,7 @@ resource "yandex_compute_instance" "vm6-kibana" {
     }
   }
   network_interface {
-    subnet_id               = yandex_vpc_subnet.subnet-pub-a.id
+    subnet_id               = yandex_vpc_subnet.subnets["subnet-a"].id
     nat                     = false
     security_group_ids      = [yandex_vpc_security_group.private-network.id]
   }
@@ -82,8 +82,8 @@ resource "yandex_compute_instance" "vm3-zabbix-server" {
     }
   }
   network_interface {
-    subnet_id               = yandex_vpc_subnet.subnet-a.id
-    nat                     = true
+    subnet_id               = yandex_vpc_subnet.subnets["subnet-a"].id
+    nat                     = false
     security_group_ids      = [yandex_vpc_security_group.private-network.id]
   }
   metadata = {
@@ -112,8 +112,8 @@ resource "yandex_compute_instance" "vm4-zabbix-front" {
     }
   }
   network_interface {
-    subnet_id               = yandex_vpc_subnet.subnet-pub-a.id
-    nat                     = true
+    subnet_id               = yandex_vpc_subnet.subnets["subnet-a"].id
+    nat                     = false
     security_group_ids      = [yandex_vpc_security_group.private-network.id]
   }
   metadata = {

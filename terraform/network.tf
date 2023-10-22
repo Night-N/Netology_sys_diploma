@@ -5,39 +5,21 @@
 resource "yandex_vpc_network" "network-1" {
   name                      = "network-1"
 }
+
 resource "yandex_vpc_default_security_group" "default-sg" {
-  description = "Deny everything"
+  description = "Clear default group"
   network_id  = "${yandex_vpc_network.network-1.id}"
 }
 
-resource "yandex_vpc_subnet" "subnet-a" {
-  name           = "subnet-a"
-  zone           = "ru-central1-a"
-  network_id     = yandex_vpc_network.network-1.id
-  v4_cidr_blocks = ["192.168.101.0/24"]
-  route_table_id = yandex_vpc_route_table.rt.id
+resource "yandex_vpc_subnet" "subnets" {
+  for_each = var.network_spec
+  name           = each.key
+  zone           = each.value["zone"]
+  network_id      = yandex_vpc_network.network-1.id
+  route_table_id  = yandex_vpc_route_table.rt.id
+  v4_cidr_blocks = [each.value["cidr_block"]]
 }
-resource "yandex_vpc_subnet" "subnet-b" {
-  name           = "subnet-b"
-  zone           = "ru-central1-b"
-  network_id     = yandex_vpc_network.network-1.id
-  v4_cidr_blocks = ["192.168.102.0/24"]
-  route_table_id = yandex_vpc_route_table.rt.id
-}
-resource "yandex_vpc_subnet" "subnet-c" {
-  name           = "subnet-c"
-  zone           = "ru-central1-c"
-  network_id     = yandex_vpc_network.network-1.id
-  v4_cidr_blocks = ["192.168.103.0/24"]
-  route_table_id = yandex_vpc_route_table.rt.id
-}
-resource "yandex_vpc_subnet" "subnet-pub-a" {
-  name           = "subnet-pub-a"
-  zone           = "ru-central1-a"
-  network_id     = yandex_vpc_network.network-1.id
-  v4_cidr_blocks = ["192.168.100.0/24"]
-  route_table_id = yandex_vpc_route_table.rt.id
-}
+
 # -------------------------------------------------------------------------------
 # -------------------------POSTGRESQL LOAD BALANCER:-----------------------------
 # -------------------------------------------------------------------------------
@@ -45,15 +27,15 @@ resource "yandex_vpc_subnet" "subnet-pub-a" {
 resource "yandex_lb_target_group" "pg-group" {
   name      = "pg-nlb"
   target {
-    subnet_id   = yandex_vpc_subnet.subnet-a.id
+    subnet_id   = yandex_vpc_subnet.subnets["subnet-a"].id
     address     = yandex_compute_instance.vm7-pg.network_interface.0.ip_address
   }
   target {
-    subnet_id   = yandex_vpc_subnet.subnet-b.id
+    subnet_id   = yandex_vpc_subnet.subnets["subnet-b"].id
     address     = yandex_compute_instance.vm8-pg.network_interface.0.ip_address
   }
   target {
-    subnet_id   = yandex_vpc_subnet.subnet-c.id
+    subnet_id   = yandex_vpc_subnet.subnets["subnet-c"].id
     address     = yandex_compute_instance.vm9-pg.network_interface.0.ip_address
   }
 }
@@ -66,7 +48,7 @@ resource "yandex_lb_network_load_balancer" "nlb2" {
     port              = "5432"
     target_port       = "6431"
     internal_address_spec {
-      subnet_id       = yandex_vpc_subnet.subnet-a.id
+      subnet_id       = yandex_vpc_subnet.subnets["subnet-a"].id
       ip_version      = "ipv4"
     }
   }
@@ -92,14 +74,13 @@ resource "yandex_lb_network_load_balancer" "nlb2" {
 
 resource "yandex_alb_target_group" "nginx-group" {
   name          = "nginx-alb"
-  target {
-    subnet_id   = yandex_vpc_subnet.subnet-a.id
-    ip_address  = yandex_compute_instance.vm1-nginx.network_interface.0.ip_address
-  }
-  target {
-    subnet_id   = yandex_vpc_subnet.subnet-b.id
-    ip_address  = yandex_compute_instance.vm2-nginx.network_interface.0.ip_address
-  }
+  dynamic "target" {
+      for_each = var.nginx_spec
+      content {
+        subnet_id   = yandex_vpc_subnet.subnets[target.value["subnet"]].id
+        ip_address  = yandex_compute_instance.nginx[target.value["name"]].network_interface.0.ip_address    
+      }
+    }
 }
 
 resource "yandex_alb_load_balancer" "alb1" {
@@ -110,11 +91,11 @@ resource "yandex_alb_load_balancer" "alb1" {
   allocation_policy {
     location {
       zone_id           = "ru-central1-a"
-      subnet_id         = yandex_vpc_subnet.subnet-a.id
+      subnet_id         = yandex_vpc_subnet.subnets["subnet-a"].id
     }
     location {
       zone_id           = "ru-central1-b"
-      subnet_id         = yandex_vpc_subnet.subnet-b.id
+      subnet_id         = yandex_vpc_subnet.subnets["subnet-b"].id
     }
   }
 
@@ -216,7 +197,7 @@ resource "yandex_alb_backend_group" "nginx-backend" {
   }
 }
 # -------------------------------------------------------------------------------
-# -----------------NAT for all VM thay don't need their own IP:------------------
+# -----------------NAT for all VM that don't need their own IP:------------------
 # -------------------------------------------------------------------------------
 
 resource "yandex_vpc_gateway" "nat_gateway" {
